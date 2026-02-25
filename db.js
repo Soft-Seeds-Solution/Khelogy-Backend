@@ -1,10 +1,7 @@
 import mongoose from "mongoose";
-
-const mongoUrl = process.env.MongoDb_Url;
-
-if (!mongoUrl) {
-  throw new Error("MongoDb_Url environment variable is not defined!");
-}
+import dotenv from "dotenv";
+dotenv.config();
+const mongoUrl = process.env.mongoDb_Url;
 
 // global cache for serverless (Vercel)
 let cached = global.mongoose;
