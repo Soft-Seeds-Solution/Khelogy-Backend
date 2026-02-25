@@ -14,6 +14,8 @@ app.use(cors({
 }))
 app.use(express.json())
 connectToMongoDb()
+    .then(() => console.log("MongoDB Connected"))
+    .catch((err) => console.error("MongoDB Connection Error:", err));
 
 app.use("/api/gameCat", GameCatController)
 app.use("/api/category", CategoryController)
