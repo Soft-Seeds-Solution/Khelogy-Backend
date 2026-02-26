@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config();
-const mongoUrl = process.env.mongoDb_Url;
 
+const mongoUrl = process.env.mongoDb_Url;
 if (!mongoUrl) throw new Error("MongoDb_Url environment variable is not defined!");
 
 let cached = global.mongoose;
@@ -14,8 +14,12 @@ async function connectToMongoDb() {
   if (!cached.promise) {
     cached.promise = mongoose
       .connect(mongoUrl, {
-        maxPoolSize: 5,               // limits simultaneous connections
-        serverSelectionTimeoutMS: 5000, // fail fast
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        tls: true,
+        tlsAllowInvalidCertificates: false,  // keep secure
+        serverSelectionTimeoutMS: 10000,
+        maxPoolSize: 10
       })
       .then((mongooseInstance) => mongooseInstance)
       .catch((err) => {
