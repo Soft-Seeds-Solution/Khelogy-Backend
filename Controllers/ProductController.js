@@ -16,7 +16,7 @@ router.post(
     errorHandling(async (req, res) => {
         const {
             title,
-            categoryId,
+            categoryIds,
             shortDes,
             description,
             howToPlay,
@@ -52,7 +52,7 @@ router.post(
             !parsedTitle?.en ||
             !parsedShortDes?.en ||
             // !parsedKeywords?.en?.length ||
-            !categoryId ||
+            !categoryIds ||
             !gameUrl ||
             !orientation
             // !howToPlay
@@ -62,21 +62,26 @@ router.post(
             });
         }
 
-        /* ---------------- FETCH CATEGORY + ANCESTORS ---------------- */
-
-        const category = await Category.findById(categoryId);
-
-        if (!category) {
-            return res.status(400).json({
-                message: "Invalid category selected"
-            });
+        // Handle categories (simple check for not null/undefined)
+        let allCategories = [];
+        if (categoryIds) {
+            const parsedIds = typeof categoryIds === "string" ? JSON.parse(categoryIds) : categoryIds;
+            if (Array.isArray(parsedIds)) {
+                for (let id of parsedIds) {
+                    if (id) { // simple non-empty check
+                        const category = await Category.findById(id);
+                        if (category) {
+                            allCategories.push(id); // just store the id string
+                            if (category.ancestors?.length > 0) {
+                                allCategories.push(...category.ancestors);
+                            }
+                        }
+                    }
+                }
+            }
+            // remove duplicates
+            allCategories = [...new Set(allCategories)];
         }
-
-        // Combine selected category + ancestors
-        const allCategories = [
-            category._id,
-            ...(category.ancestors || [])
-        ];
 
         /* ---------------- FAQ VALIDATION ---------------- */
         if (safeFaqs.length) {
