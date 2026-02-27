@@ -32,10 +32,6 @@ const productSchema = new Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Category"
   }],
-  // categoryId: {
-  //   type: Schema.Types.ObjectId,
-  //   ref: "Category"
-  // },
   thumbnail: String,
   gameUrl: String,
   howToPlay: String,

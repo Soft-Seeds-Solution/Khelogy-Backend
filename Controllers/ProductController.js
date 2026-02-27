@@ -338,55 +338,70 @@ router.put(
     ]),
     errorHandling(async (req, res) => {
         const {
-            title, shortDes, description, categoryId, gameUrl, howToPlay, whoCreated, orientation, featureGame, recommended, featureList, controls, faqs, metaTitle, metaDescription, gameKeywords
+            title,
+            shortDes,
+            description,
+            categoryIds,
+            gameUrl,
+            howToPlay,
+            whoCreated,
+            orientation,
+            featureGame,
+            recommended,
+            featureList,
+            controls,
+            faqs,
+            metaTitle,
+            metaDescription,
+            gameKeywords,
         } = req.body;
 
         const gameId = req.params.id;
 
+        // Fetch existing game
         const existingGame = await Products.findById(gameId);
         if (!existingGame) return res.status(404).json({ message: "Game not found" });
 
+        // Parse JSON fields if they are strings
         const parsedTitle = typeof title === "string" ? JSON.parse(title) : title;
-        const parsedShortDes = typeof shortDes === "string" ? JSON.parse(shortDes) : shortDes;
-        const parsedDescription = typeof description === "string" ? JSON.parse(description) : description;
-        const keywordsArray = gameKeywords
-            ? gameKeywords.split(",").map(k => k.trim()).filter(k => k)
-            : [];
-
-        /* ---------------- PARSE FAQS ---------------- */
+        const parsedShortDes =
+            typeof shortDes === "string" ? JSON.parse(shortDes) : shortDes;
+        const parsedDescription =
+            typeof description === "string" ? JSON.parse(description) : description;
         const parsedFaqs = typeof faqs === "string" ? JSON.parse(faqs) : faqs;
         const safeFaqs = Array.isArray(parsedFaqs) ? parsedFaqs : [];
+        const keywordsArray = gameKeywords
+            ? gameKeywords.split(",").map((k) => k.trim()).filter((k) => k)
+            : [];
 
-        if (recommended === "Yes" && existingGame.recommended !== "Yes") {
-            const recommendedGames = await Products.find({ recommended: "Yes", _id: { $ne: gameId } });
-            if (recommendedGames.length >= 11) {
-                return res.status(400).json({ message: "Cannot add more than 11 featured games" });
+        // Handle categories (simple check for not null/undefined)
+        let allCategories = [];
+        if (categoryIds) {
+            const parsedIds = typeof categoryIds === "string" ? JSON.parse(categoryIds) : categoryIds;
+            if (Array.isArray(parsedIds)) {
+                for (let id of parsedIds) {
+                    if (id) { // simple non-empty check
+                        const category = await Category.findById(id);
+                        if (category) {
+                            allCategories.push(id); // just store the id string
+                            if (category.ancestors?.length > 0) {
+                                allCategories.push(...category.ancestors);
+                            }
+                        }
+                    }
+                }
             }
+            // remove duplicates
+            allCategories = [...new Set(allCategories)];
         }
 
-        let allCategories;
-
-        if (categoryId) {
-            const category = await Category.findById(categoryId);
-
-            if (!category) {
-                return res.status(400).json({
-                    message: "Invalid category selected"
-                });
-            }
-
-            allCategories = [
-                category._id,
-                ...(category.ancestors || [])
-            ];
-        }
-
+        // Build update object
         let updatedData = {};
-        if (title) updatedData.title = parsedTitle;
-        if (description) updatedData.description = parsedDescription;
-        if (shortDes) updatedData.shortDes = parsedShortDes;
-        if (gameKeywords) updatedData.gameKeywords = keywordsArray;
-        if (allCategories) updatedData.categories = allCategories;
+        if (parsedTitle) updatedData.title = parsedTitle;
+        if (parsedShortDes) updatedData.shortDes = parsedShortDes;
+        if (parsedDescription) updatedData.description = parsedDescription;
+        if (keywordsArray.length > 0) updatedData.gameKeywords = keywordsArray;
+        if (allCategories.length > 0) updatedData.categories = allCategories;
         if (gameUrl) updatedData.gameUrl = gameUrl;
         if (howToPlay) updatedData.howToPlay = howToPlay;
         if (whoCreated) updatedData.whoCreated = whoCreated;
@@ -397,26 +412,22 @@ router.put(
         if (controls) updatedData.controls = controls;
         if (metaTitle) updatedData.metaTitle = metaTitle;
         if (metaDescription) updatedData.metaDescription = metaDescription;
-        if (safeFaqs) updatedData.faqs = safeFaqs;
+        if (safeFaqs.length > 0) updatedData.faqs = safeFaqs;
 
-        if (req.files?.thumbnail) {
+        // Handle files
+        if (req.files?.thumbnail?.[0]) {
             const imgUpload = await Cloudinary.uploader.upload(req.files.thumbnail[0].path);
             updatedData.thumbnail = imgUpload.secure_url;
         }
-
-        if (req.files?.video) {
+        if (req.files?.video?.[0]) {
             const videoUpload = await Cloudinary.uploader.upload(req.files.video[0].path, {
                 resource_type: "video",
             });
             updatedData.video = videoUpload.secure_url;
         }
 
-        const updatedGame = await Products.findByIdAndUpdate(
-            gameId,
-            { $set: updatedData },
-            { new: true }
-        );
-
+        // Update game
+        const updatedGame = await Products.findByIdAndUpdate(gameId, updatedData, { new: true });
         res.json(updatedGame);
     })
 );
